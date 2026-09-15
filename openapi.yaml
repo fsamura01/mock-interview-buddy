@@ -1,0 +1,1400 @@
+openapi: 3.0.3
+info:
+  title: Mock Interview Buddy Platform API
+  description: >
+    REST and WebSocket specification expected by the Mock Interview Buddy frontend application.
+    Powers real-time collaborative system design whiteboard interviews between interviewers,
+    candidates, observers, and administrators.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local development backend server
+  - url: https://api.mockinterviewbuddy.com
+    description: Production backend cluster
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Auth & Users
+    description: Authentication and current user identity
+  - name: Sessions
+    description: Session lifecycle management, status transitions, and invite joining
+  - name: Board
+    description: Aggregated session state retrieval for initial canvas load
+  - name: Canvas Nodes
+    description: Draggable system architecture components (clients, databases, services, etc.)
+  - name: Canvas Edges
+    description: Directed connections between architecture components
+  - name: Chat
+    description: Session room chat messaging
+  - name: Snapshots
+    description: Point-in-time canvas state capture and restoration
+  - name: Audit
+    description: Append-only audit logs for tracking session actions and mutations
+  - name: Realtime
+    description: WebSocket upgrade for real-time collaboration and presence
+
+paths:
+  # ============================================================================
+  # AUTH & USERS
+  # ============================================================================
+  /api/v1/auth/me:
+    get:
+      tags:
+        - Auth & Users
+      summary: Get current authenticated user
+      description: >
+        Returns the profile and role details of the currently authenticated user based on the provided JWT bearer token.
+        Expected by `PlatformApi.getCurrentUser()`.
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Authenticated user details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /api/v1/sessions/join:
+    post:
+      tags:
+        - Sessions
+      summary: Join session with invite token
+      description: >
+        Enables candidates and observers to join an interview session via a public invite token without prior platform registration.
+      operationId: joinSessionByInvite
+      security: [] # Unauthenticated / Public endpoint using invite token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - displayName
+              properties:
+                token:
+                  type: string
+                  description: Unique session invitation token (e.g. inv-7f3a91)
+                  example: "inv-7f3a91"
+                displayName:
+                  type: string
+                  description: Candidate or observer display name
+                  example: "Noah Chen"
+      responses:
+        "200":
+          description: Successfully joined session
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - user
+                      - session
+                      - participant
+                      - accessToken
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      session:
+                        $ref: "#/components/schemas/Session"
+                      participant:
+                        $ref: "#/components/schemas/Participant"
+                      accessToken:
+                        type: string
+                        description: JWT bearer token issued for this interview session
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  # ============================================================================
+  # SESSIONS
+  # ============================================================================
+  /api/v1/sessions:
+    get:
+      tags:
+        - Sessions
+      summary: List interview sessions
+      description: >
+        Lists interview sessions visible to the current authenticated user (e.g. created by user or participated in).
+        Expected by `PlatformApi.listSessions()`.
+      operationId: listSessions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          description: Cursor for pagination
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter sessions by status
+          required: false
+          schema:
+            $ref: "#/components/schemas/SessionStatus"
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Session"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    post:
+      tags:
+        - Sessions
+      summary: Create interview session
+      description: >
+        Creates a new system design interview session.
+        Expected by `PlatformApi.createSession(input)`.
+      operationId: createSession
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionInput"
+      responses:
+        "201":
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+
+  /api/v1/sessions/{sessionId}:
+    get:
+      tags:
+        - Sessions
+      summary: Get session metadata
+      description: Retrieves core metadata for a given interview session.
+      operationId: getSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Session details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /api/v1/sessions/{sessionId}/status:
+    patch:
+      tags:
+        - Sessions
+      summary: Update session status
+      description: >
+        Updates the execution state of an interview session (`scheduled`, `active`, `paused`, `ended`).
+        Interviewer or Admin only.
+        Expected by `PlatformApi.setSessionStatus(sessionId, status)`.
+      operationId: setSessionStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  $ref: "#/components/schemas/SessionStatus"
+      responses:
+        "200":
+          description: Session status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  # ============================================================================
+  # BOARD (AGGREGATED STATE)
+  # ============================================================================
+  /api/v1/sessions/{sessionId}/board:
+    get:
+      tags:
+        - Board
+      summary: Get aggregated session board state
+      description: >
+        Fetches the complete initial board state for a session, including session metadata,
+        active participants, canvas nodes, edges, chat messages, audit entries, and saved snapshots.
+        Expected by `PlatformApi.getBoard(sessionId)`.
+      operationId: getBoard
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Full session board state
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SessionBoard"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  # ============================================================================
+  # CANVAS NODES
+  # ============================================================================
+  /api/v1/sessions/{sessionId}/nodes:
+    post:
+      tags:
+        - Canvas Nodes
+      summary: Create canvas node
+      description: >
+        Adds a new system component node to the collaborative canvas.
+        Expected by `PlatformApi.createNode(sessionId, node)`.
+      operationId: createNode
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCanvasNodeInput"
+      responses:
+        "201":
+          description: Canvas node created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CanvasNode"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /api/v1/sessions/{sessionId}/nodes/{nodeId}:
+    patch:
+      tags:
+        - Canvas Nodes
+      summary: Update canvas node
+      description: >
+        Applies a partial update (coordinates, label, notes, dimensions, or kind) to an existing canvas node.
+        Expected by `PlatformApi.updateNode(sessionId, nodeId, patch)`.
+      operationId: updateNode
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/NodeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCanvasNodeInput"
+      responses:
+        "200":
+          description: Updated canvas node
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CanvasNode"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+    delete:
+      tags:
+        - Canvas Nodes
+      summary: Delete canvas node
+      description: >
+        Deletes a canvas node and automatically cascades removal to any connected edges.
+        Expected by `PlatformApi.deleteNode(sessionId, nodeId)`.
+      operationId: deleteNode
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/NodeId"
+      responses:
+        "204":
+          description: Node deleted successfully
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  # ============================================================================
+  # CANVAS EDGES
+  # ============================================================================
+  /api/v1/sessions/{sessionId}/edges:
+    post:
+      tags:
+        - Canvas Edges
+      summary: Create canvas edge
+      description: >
+        Connects two nodes with a directional protocol edge. If an identical edge already exists, returns existing.
+        Expected by `PlatformApi.createEdge(sessionId, edge)`.
+      operationId: createEdge
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCanvasEdgeInput"
+      responses:
+        "201":
+          description: Canvas edge created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CanvasEdge"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /api/v1/sessions/{sessionId}/edges/{edgeId}:
+    delete:
+      tags:
+        - Canvas Edges
+      summary: Delete canvas edge
+      description: >
+        Removes a directed edge between components on the canvas.
+        Expected by `PlatformApi.deleteEdge(sessionId, edgeId)`.
+      operationId: deleteEdge
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/EdgeId"
+      responses:
+        "204":
+          description: Edge deleted successfully
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  # ============================================================================
+  # CHAT
+  # ============================================================================
+  /api/v1/sessions/{sessionId}/messages:
+    get:
+      tags:
+        - Chat
+      summary: List session chat messages
+      description: Retrieves chronological chat message history for the session.
+      operationId: listMessages
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of chat messages
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ChatMessage"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+    post:
+      tags:
+        - Chat
+      summary: Send chat message
+      description: >
+        Posts a text message into the session chat stream.
+        Expected by `PlatformApi.sendMessage(sessionId, body)`.
+      operationId: sendMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - body
+              properties:
+                body:
+                  type: string
+                  description: Text content of chat message
+                  example: "Starting with read-heavy assumptions — 100:1 read to write ratio."
+      responses:
+        "201":
+          description: Chat message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ChatMessage"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  # ============================================================================
+  # AUDIT TRAIL
+  # ============================================================================
+  /api/v1/sessions/{sessionId}/audit:
+    get:
+      tags:
+        - Audit
+      summary: List audit log entries
+      description: >
+        Returns the append-only audit trail recording significant canvas mutations and session milestones.
+        Expected by `PlatformApi.listAudit(sessionId)`.
+      operationId: listAudit
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEntry"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  # ============================================================================
+  # SNAPSHOTS
+  # ============================================================================
+  /api/v1/sessions/{sessionId}/snapshots:
+    get:
+      tags:
+        - Snapshots
+      summary: List session snapshots
+      description: Lists all captured point-in-time canvas snapshots for the session.
+      operationId: listSnapshots
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Saved snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Snapshot"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+    post:
+      tags:
+        - Snapshots
+      summary: Save canvas snapshot
+      description: >
+        Captures the current state of canvas nodes and edges as an immutable snapshot.
+        Expected by `PlatformApi.saveSnapshot(sessionId, label)`.
+      operationId: saveSnapshot
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+              properties:
+                label:
+                  type: string
+                  description: Human-readable name/label for the snapshot
+                  example: "Snapshot 1 - Initial Architecture"
+      responses:
+        "201":
+          description: Snapshot saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Snapshot"
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /api/v1/sessions/{sessionId}/snapshots/{snapshotId}/restore:
+    post:
+      tags:
+        - Snapshots
+      summary: Restore canvas snapshot
+      description: >
+        Overwrites current session canvas nodes and edges with the saved snapshot state,
+        and broadcasts updated state to all connected participants.
+        Expected by `PlatformApi.restoreSnapshot(sessionId, snapshotId)`.
+      operationId: restoreSnapshot
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/SnapshotId"
+      responses:
+        "200":
+          description: Restored session board
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SessionBoard"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  # ============================================================================
+  # REAL-TIME WEBSOCKET GATEWAY
+  # ============================================================================
+  /api/v1/sessions/{sessionId}/ws:
+    get:
+      tags:
+        - Realtime
+      summary: Real-time session WebSocket connection
+      description: >
+        Upgrades HTTP to persistent WebSocket connection. Used by `PlatformApi.subscribe(sessionId, onChange)`.
+        Streams live presence (cursors), remote canvas node/edge mutations, chat notifications,
+        and board synchronization.
+      operationId: sessionRealtimeGateway
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: token
+          in: query
+          description: Optional auth token when WebSocket client cannot send Authorization headers directly
+          required: false
+          schema:
+            type: string
+      responses:
+        "101":
+          description: WebSocket upgrade handshake successful
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+# ==============================================================================
+# COMPONENTS & SCHEMAS
+# ==============================================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter valid JWT token issued on login or session invite join.
+
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: Unique ID of the interview session (e.g. ses_demo)
+      schema:
+        type: string
+        example: "ses_demo"
+
+    NodeId:
+      name: nodeId
+      in: path
+      required: true
+      description: Unique ID of the canvas node (e.g. nd_abc123)
+      schema:
+        type: string
+        example: "nd_abc123"
+
+    EdgeId:
+      name: edgeId
+      in: path
+      required: true
+      description: Unique ID of the canvas edge (e.g. eg_xyz789)
+      schema:
+        type: string
+        example: "eg_xyz789"
+
+    SnapshotId:
+      name: snapshotId
+      in: path
+      required: true
+      description: Unique ID of the snapshot (e.g. snp_001)
+      schema:
+        type: string
+        example: "snp_001"
+
+  schemas:
+    # --------------------------------------------------------------------------
+    # Core Enums
+    # --------------------------------------------------------------------------
+    Role:
+      type: string
+      enum:
+        - interviewer
+        - candidate
+        - observer
+        - admin
+      description: User permission tier in the interview platform.
+      example: "interviewer"
+
+    SessionStatus:
+      type: string
+      enum:
+        - scheduled
+        - active
+        - paused
+        - ended
+      description: Lifecycle state of the interview session.
+      example: "active"
+
+    NodeKind:
+      type: string
+      enum:
+        - client
+        - gateway
+        - service
+        - database
+        - cache
+        - queue
+        - storage
+        - cdn
+        - worker
+        - external
+      description: Catalog architectural archetype for a canvas node.
+      example: "database"
+
+    EdgeProtocol:
+      type: string
+      enum:
+        - http
+        - grpc
+        - async
+        - sql
+        - stream
+      description: Communication protocol representing connection semantics.
+      example: "http"
+
+    # --------------------------------------------------------------------------
+    # Domain Models
+    # --------------------------------------------------------------------------
+    User:
+      type: object
+      required:
+        - id
+        - displayName
+        - email
+        - role
+        - color
+      properties:
+        id:
+          type: string
+          description: Unique user ID
+          example: "u_interviewer"
+        displayName:
+          type: string
+          description: User full or display name
+          example: "Ada Mensah"
+        email:
+          type: string
+          format: email
+          description: User contact email
+          example: "ada@interviews.dev"
+        role:
+          $ref: "#/components/schemas/Role"
+        color:
+          type: string
+          description: Hex color code assigned for cursor, presence, and annotations
+          example: "#f0b429"
+
+    Participant:
+      type: object
+      required:
+        - id
+        - sessionId
+        - userId
+        - displayName
+        - role
+        - color
+        - online
+      properties:
+        id:
+          type: string
+          description: Participant connection entry ID
+          example: "p1"
+        sessionId:
+          type: string
+          description: Associated interview session ID
+          example: "ses_demo"
+        userId:
+          type: string
+          description: User ID of participant
+          example: "u_interviewer"
+        displayName:
+          type: string
+          description: Display name
+          example: "Ada Mensah"
+        role:
+          $ref: "#/components/schemas/Role"
+        color:
+          type: string
+          description: Assigned participant color hex
+          example: "#f0b429"
+        online:
+          type: boolean
+          description: Current live connection status
+          example: true
+        cursor:
+          type: object
+          nullable: true
+          description: Real-time board cursor coordinates
+          properties:
+            x:
+              type: number
+              example: 420
+            y:
+              type: number
+              example: 260
+
+    Session:
+      type: object
+      required:
+        - id
+        - title
+        - prompt
+        - status
+        - createdAt
+        - createdBy
+        - inviteToken
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          description: Unique session ID
+          example: "ses_demo"
+        title:
+          type: string
+          description: Interview session title
+          example: "Design a URL shortener"
+        prompt:
+          type: string
+          description: System design problem description and scenario requirements
+          example: "Design a highly available URL shortening service handling 10k writes/s and 1M reads/s with analytics."
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO-8601 creation timestamp
+          example: "2026-09-15T12:00:00.000Z"
+        createdBy:
+          type: string
+          description: User ID who created the session
+          example: "u_interviewer"
+        inviteToken:
+          type: string
+          description: Shareable invite code for candidates
+          example: "inv-7f3a91"
+        durationMinutes:
+          type: integer
+          description: Scheduled session duration in minutes
+          example: 60
+
+    CanvasNode:
+      type: object
+      required:
+        - id
+        - sessionId
+        - kind
+        - label
+        - notes
+        - x
+        - y
+        - width
+        - height
+        - version
+      properties:
+        id:
+          type: string
+          description: Unique canvas node ID
+          example: "nd_gateway1"
+        sessionId:
+          type: string
+          description: Session ID containing this node
+          example: "ses_demo"
+        kind:
+          $ref: "#/components/schemas/NodeKind"
+        label:
+          type: string
+          description: Display name of the architecture component
+          example: "API Gateway"
+        notes:
+          type: string
+          description: Notes or configuration details for this component
+          example: "Rate limiting and SSL termination"
+        x:
+          type: number
+          description: X coordinate on infinite canvas
+          example: 330
+        y:
+          type: number
+          description: Y coordinate on infinite canvas
+          example: 120
+        width:
+          type: number
+          description: Rendered width in pixels
+          example: 176
+        height:
+          type: number
+          description: Rendered height in pixels
+          example: 84
+        version:
+          type: integer
+          description: Monotonically increasing version counter for optimistic concurrency
+          example: 1
+
+    CanvasEdge:
+      type: object
+      required:
+        - id
+        - sessionId
+        - fromNodeId
+        - toNodeId
+        - label
+        - protocol
+      properties:
+        id:
+          type: string
+          description: Unique edge ID
+          example: "eg_1"
+        sessionId:
+          type: string
+          description: Session ID
+          example: "ses_demo"
+        fromNodeId:
+          type: string
+          description: Source canvas node ID
+          example: "nd_client"
+        toNodeId:
+          type: string
+          description: Target canvas node ID
+          example: "nd_gateway"
+        label:
+          type: string
+          description: Optional protocol or interaction note displayed along the edge
+          example: "HTTPS"
+        protocol:
+          $ref: "#/components/schemas/EdgeProtocol"
+
+    ChatMessage:
+      type: object
+      required:
+        - id
+        - sessionId
+        - authorId
+        - authorName
+        - body
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Unique chat message ID
+          example: "msg_123"
+        sessionId:
+          type: string
+          description: Session ID
+          example: "ses_demo"
+        authorId:
+          type: string
+          description: User ID who posted the message
+          example: "u_candidate"
+        authorName:
+          type: string
+          description: Author display name
+          example: "Noah Chen"
+        body:
+          type: string
+          description: Message text
+          example: "Starting with read-heavy assumptions — 100:1 read to write ratio."
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-15T12:05:00.000Z"
+
+    AuditEntry:
+      type: object
+      required:
+        - id
+        - sessionId
+        - actorName
+        - action
+        - detail
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Unique audit log entry ID
+          example: "aud_123"
+        sessionId:
+          type: string
+          description: Session ID
+          example: "ses_demo"
+        actorName:
+          type: string
+          description: Name of actor who performed the action
+          example: "Ada Mensah"
+        action:
+          type: string
+          description: Operation or event identifier (e.g. node.created, session.active)
+          example: "node.created"
+        detail:
+          type: string
+          description: Human-readable summary of the action
+          example: "gateway · API Gateway"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-15T12:01:00.000Z"
+
+    Snapshot:
+      type: object
+      required:
+        - id
+        - sessionId
+        - label
+        - createdAt
+        - nodes
+        - edges
+      properties:
+        id:
+          type: string
+          description: Unique snapshot ID
+          example: "snp_123"
+        sessionId:
+          type: string
+          description: Session ID
+          example: "ses_demo"
+        label:
+          type: string
+          description: User-defined or auto-generated snapshot label
+          example: "Snapshot 1"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-15T12:20:00.000Z"
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CanvasNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/CanvasEdge"
+
+    SessionBoard:
+      type: object
+      required:
+        - session
+        - participants
+        - nodes
+        - edges
+        - messages
+        - audit
+        - snapshots
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/Participant"
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CanvasNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/CanvasEdge"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        audit:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEntry"
+        snapshots:
+          type: array
+          items:
+            $ref: "#/components/schemas/Snapshot"
+
+    # --------------------------------------------------------------------------
+    # Request Input Types
+    # --------------------------------------------------------------------------
+    CreateSessionInput:
+      type: object
+      required:
+        - title
+        - prompt
+        - durationMinutes
+      properties:
+        title:
+          type: string
+          description: Title of the interview session
+          example: "Design a URL shortener"
+        prompt:
+          type: string
+          description: The design prompt given to the candidate
+          example: "Design a highly available URL shortening service handling 10k writes/s and 1M reads/s with analytics."
+        durationMinutes:
+          type: integer
+          description: Duration in minutes
+          default: 60
+          example: 60
+
+    CreateCanvasNodeInput:
+      type: object
+      required:
+        - kind
+        - label
+        - x
+        - y
+        - width
+        - height
+      properties:
+        kind:
+          $ref: "#/components/schemas/NodeKind"
+        label:
+          type: string
+          example: "Web Client"
+        notes:
+          type: string
+          default: ""
+          example: ""
+        x:
+          type: number
+          example: 80
+        y:
+          type: number
+          example: 120
+        width:
+          type: number
+          default: 176
+          example: 176
+        height:
+          type: number
+          default: 84
+          example: 84
+
+    UpdateCanvasNodeInput:
+      type: object
+      properties:
+        kind:
+          $ref: "#/components/schemas/NodeKind"
+        label:
+          type: string
+          example: "API Gateway"
+        notes:
+          type: string
+          example: "Rate limiting enabled"
+        x:
+          type: number
+          example: 350
+        y:
+          type: number
+          example: 140
+        width:
+          type: number
+          example: 176
+        height:
+          type: number
+          example: 84
+
+    CreateCanvasEdgeInput:
+      type: object
+      required:
+        - fromNodeId
+        - toNodeId
+        - protocol
+      properties:
+        fromNodeId:
+          type: string
+          description: ID of the source canvas node
+          example: "nd_client"
+        toNodeId:
+          type: string
+          description: ID of the destination canvas node
+          example: "nd_gateway"
+        label:
+          type: string
+          default: ""
+          description: Edge label (e.g. HTTPS, REST, SQL)
+          example: "HTTPS"
+        protocol:
+          $ref: "#/components/schemas/EdgeProtocol"
+
+    PaginationMeta:
+      type: object
+      properties:
+        nextCursor:
+          type: string
+          nullable: true
+          example: "cur_12345"
+        hasMore:
+          type: boolean
+          example: false
+
+    # --------------------------------------------------------------------------
+    # Standard Error Envelope
+    # --------------------------------------------------------------------------
+    ErrorDetail:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "BAD_REQUEST"
+        message:
+          type: string
+          example: "Invalid input parameters"
+        details:
+          type: object
+          nullable: true
+
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+
+  # ============================================================================
+  # STANDARD RESPONSES
+  # ============================================================================
+  responses:
+    BadRequestError:
+      description: Invalid request payload, missing fields, or validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    UnauthorizedError:
+      description: Authentication is missing, invalid, or expired
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    ForbiddenError:
+      description: Authenticated user lacks required permissions for this operation/session
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    NotFoundError:
+      description: The requested resource (session, node, edge, or snapshot) was not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
