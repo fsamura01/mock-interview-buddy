@@ -65,6 +65,58 @@ paths:
         "401":
           $ref: "#/components/responses/UnauthorizedError"
 
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Auth & Users
+      summary: User login
+      description: Authenticates an interviewer or platform user with email and password to issue a JWT bearer token.
+      operationId: login
+      security: [] # Public endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "ada@interviews.dev"
+                password:
+                  type: string
+                  format: password
+                  example: "password123"
+      responses:
+        "200":
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - user
+                      - accessToken
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      accessToken:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "400":
+          $ref: "#/components/responses/BadRequestError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
   /api/v1/sessions/join:
     post:
       tags:
