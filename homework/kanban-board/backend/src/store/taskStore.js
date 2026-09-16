@@ -9,8 +9,17 @@ const tasks = [
     new Task(5, "Task 5", "Description 5", "2026-09-28", "DONE"),
 ];
 
+
 // Export the array
 const getAllTasks = () => {
     return tasks;
 };
-export default { getAllTasks };
+
+// Add a new task
+const createTask = (title, description, dueDate, status) => {
+    const newTask = new Task(tasks.length + 1, title, description, dueDate, status);
+    tasks.push(newTask);
+    return newTask;
+};
+
+export default { getAllTasks, createTask };
