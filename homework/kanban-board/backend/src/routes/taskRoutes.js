@@ -16,4 +16,17 @@ router.post("/", (req, res) => {
     res.json(newTask);
 });
 
+
+// update task PUT /api/tasks/:id
+router.put("/:id", (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, description, dueDate, status } = req.body;
+        const updatedTask = taskStore.updateTask(id, title, description, dueDate, status);
+        res.json(updatedTask);
+    } catch (error) {
+        res.status(404).json({ error: error.message });
+    }
+});
+
 export default router;
