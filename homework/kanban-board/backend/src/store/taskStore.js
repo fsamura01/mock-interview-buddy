@@ -53,7 +53,7 @@ const deleteTask = (id) => {
     }
 
     const deletedTask = tasks.splice(taskIndex, 1);
-    return deletedTask;
+    return deletedTask[0];
 };
 
 export default { getAllTasks, createTask, updateTask, deleteTask };

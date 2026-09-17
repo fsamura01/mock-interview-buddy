@@ -29,4 +29,15 @@ router.put("/:id", (req, res) => {
     }
 });
 
+// delete task DELETE /api/tasks/:id
+router.delete("/:id", (req, res) => {
+    try {
+        const { id } = req.params;
+        const deletedTask = taskStore.deleteTask(id);
+        res.json({ message: `Task with id ${deletedTask.id} has been deleted successfully` });
+    } catch (error) {
+        res.status(404).json({ error: error.message });
+    }
+});
+
 export default router;
