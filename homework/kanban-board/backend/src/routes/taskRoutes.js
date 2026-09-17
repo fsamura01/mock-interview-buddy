@@ -10,10 +10,15 @@ router.get("/", (req, res) => {
 });
 
 // add task POST /api/tasks
+// modify the post route to have try/catch
 router.post("/", (req, res) => {
-    const { title, description, dueDate, status } = req.body;
-    const newTask = taskStore.createTask(title, description, dueDate, status);
-    res.json(newTask);
+    try {
+        const { title, description, dueDate, status } = req.body;
+        const newTask = taskStore.createTask(title, description, dueDate, status);
+        res.json(newTask);
+    } catch (error) {
+        res.status(404).json({ error: error.message });
+    }
 });
 
 

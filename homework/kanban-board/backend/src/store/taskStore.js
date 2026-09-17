@@ -16,8 +16,12 @@ const getAllTasks = () => {
 };
 
 // Add a new task
+let nextId = 6;
 const createTask = (title, description, dueDate, status) => {
-    const newTask = new Task(tasks.length + 1, title, description, dueDate, status);
+    // check if status is valid using validateStatus function
+    validateStatus(status);
+    const id = nextId++;
+    const newTask = new Task(id, title, description, dueDate, status);
     tasks.push(newTask);
     return newTask;
 };
@@ -25,10 +29,11 @@ const createTask = (title, description, dueDate, status) => {
 // Update a task
 const updateTask = (id, title, description, dueDate, status) => {
     const task = tasks.find((task) => task.id === Number(id));
+
     if (!task) {
         throw new Error("Task not found with id " + id);
     }
-
+    validateStatus(status);
     if (title) {
         task.title = title;
     }
@@ -54,6 +59,14 @@ const deleteTask = (id) => {
 
     const deletedTask = tasks.splice(taskIndex, 1);
     return deletedTask[0];
+};
+
+// create a validateStatus function
+const validateStatus = (status) => {
+    const validStatus = ["TODO", "IN_PROGRESS", "DONE"];
+    if (status && !validStatus.includes(status)) {
+        throw new Error("Status must be TODO, IN_PROGRESS, or DONE");
+    }
 };
 
 export default { getAllTasks, createTask, updateTask, deleteTask };
