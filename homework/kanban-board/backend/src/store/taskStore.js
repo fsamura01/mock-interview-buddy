@@ -45,6 +45,15 @@ const updateTask = (id, title, description, dueDate, status) => {
     return task;
 };
 
+// Delete a task
+const deleteTask = (id) => {
+    const taskIndex = tasks.findIndex((task) => task.id === Number(id));
+    if (taskIndex === -1) {
+        throw new Error("Task not found with id " + id);
+    }
 
+    const deletedTask = tasks.splice(taskIndex, 1);
+    return deletedTask;
+};
 
-export default { getAllTasks, createTask, updateTask };
+export default { getAllTasks, createTask, updateTask, deleteTask };
