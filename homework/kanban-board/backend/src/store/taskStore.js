@@ -22,4 +22,29 @@ const createTask = (title, description, dueDate, status) => {
     return newTask;
 };
 
-export default { getAllTasks, createTask };
+// Update a task
+const updateTask = (id, title, description, dueDate, status) => {
+    const task = tasks.find((task) => task.id === Number(id));
+    if (!task) {
+        throw new Error("Task not found with id " + id);
+    }
+
+    if (title) {
+        task.title = title;
+    }
+    if (description) {
+        task.description = description;
+    }
+    if (dueDate) {
+        task.dueDate = dueDate;
+    }
+    if (status) {
+        task.status = status;
+    }
+
+    return task;
+};
+
+
+
+export default { getAllTasks, createTask, updateTask };
