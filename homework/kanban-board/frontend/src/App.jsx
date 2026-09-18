@@ -42,7 +42,7 @@ function App() {
           value={formData.dueDate}
           onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}>
         </input>
-        <select>
+        <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
           <option value="TODO">TODO</option>
           <option value="IN_PROGRESS">IN_PROGRESS</option>
           <option value="DONE">DONE</option>
