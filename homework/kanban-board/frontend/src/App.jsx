@@ -26,10 +26,14 @@ function App() {
 
         <div className="column">
           <h2>IN PROGRESS</h2>
+          {tasks.filter(task => task.status === 'IN_PROGRESS').map(task => (
+            <div className="task" key={task.id}>{task.title}</div>
+          ))}
         </div>
 
         <div className="column">
           <h2>DONE</h2>
+
         </div>
       </div>
     </>
