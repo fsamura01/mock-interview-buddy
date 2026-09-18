@@ -33,7 +33,9 @@ function App() {
 
         <div className="column">
           <h2>DONE</h2>
-
+          {tasks.filter(task => task.status === 'DONE').map(task => (
+            <div className="task" key={task.id}>{task.title}</div>
+          ))}
         </div>
       </div>
     </>
