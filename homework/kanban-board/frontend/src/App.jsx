@@ -25,9 +25,23 @@ function App() {
 
       <form className='form-section'>
         <h2>Add New Task</h2>
-        <input type='text' placeholder='Title'></input>
-        <input type='text' placeholder='Description'></input>
-        <input type='date' ></input>
+        <input
+          type='text'
+          placeholder='Title'
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}>
+        </input>
+        <input
+          type='text'
+          placeholder='Description'
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}>
+        </input>
+        <input
+          type='date'
+          value={formData.dueDate}
+          onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}>
+        </input>
         <select>
           <option value="TODO">TODO</option>
           <option value="IN_PROGRESS">IN_PROGRESS</option>
