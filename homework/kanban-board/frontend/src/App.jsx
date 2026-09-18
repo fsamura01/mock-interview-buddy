@@ -3,6 +3,12 @@ import { useEffect, useState } from 'react'
 
 function App() {
   const [tasks, setTasks] = useState([]);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    dueDate: '',
+    status: 'TODO'
+  });
 
   useEffect(() => {
     const fetchTasks = async () => {
