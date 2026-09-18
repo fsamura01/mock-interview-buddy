@@ -16,10 +16,12 @@ function App() {
   return (
     <>
       <h1>Kanban Board</h1>
-      <pre>{JSON.stringify(tasks, null, 2)}</pre>
       <div className="kanban-board">
         <div className="column">
           <h2>TODO</h2>
+          {tasks.filter(task => task.status === 'TODO').map(task => (
+            <div className="task" key={task.id}>{task.title}</div>
+          ))}
         </div>
 
         <div className="column">
