@@ -22,6 +22,20 @@ function App() {
   return (
     <>
       <h1>Kanban Board</h1>
+
+      <form className='form-section'>
+        <h2>Add New Task</h2>
+        <input type='text' placeholder='Title'></input>
+        <input type='text' placeholder='Description'></input>
+        <input type='date' ></input>
+        <select>
+          <option value="TODO">TODO</option>
+          <option value="IN_PROGRESS">IN_PROGRESS</option>
+          <option value="DONE">DONE</option>
+        </select>
+        <button>Add Task</button>
+      </form>
+
       <div className="kanban-board">
         <div className="column">
           <h2>TODO</h2>
