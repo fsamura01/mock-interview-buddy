@@ -19,16 +19,16 @@ function App() {
     fetchTasks();
   }, []);
 
-  const handleAddTask = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const response = fetch('http://localhost:3000/api/tasks', {
+    const response = await fetch('http://localhost:3000/api/tasks', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(formData)
     });
-    const data = response.json();
+    const data = await response.json();
     setTasks([...tasks, data]);
     setFormData({
       title: '',
@@ -42,7 +42,7 @@ function App() {
     <>
       <h1>Kanban Board</h1>
 
-      <form className='form-section' onSubmit={handleAddTask}>
+      <form className='form-section' onSubmit={handleSubmit}>
         <h2>Add New Task</h2>
         <input
           type='text'
