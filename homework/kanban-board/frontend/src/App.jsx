@@ -13,6 +13,9 @@ function App() {
   useEffect(() => {
     const fetchTasks = async () => {
       const response = await fetch('http://localhost:3000/api/tasks');
+      if (!response.ok) {
+        return;
+      }
       const data = await response.json();
       setTasks(data);
     };
@@ -28,6 +31,9 @@ function App() {
       },
       body: JSON.stringify(formData)
     });
+    if (!response.ok) {
+      return;
+    }
     const data = await response.json();
     setTasks([...tasks, data]);
     setFormData({
@@ -42,7 +48,9 @@ function App() {
     const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
       method: 'DELETE'
     });
-    const data = await response.json();
+    if (!response.ok) {
+      return;
+    }
     setTasks(tasks.filter(task => task.id !== id));
   };
 
@@ -60,6 +68,9 @@ function App() {
       },
       body: JSON.stringify(updatedTask)
     });
+    if (!response.ok) {
+      return;
+    }
     const data = await response.json();
     setTasks(tasks.map(task => task.id === id ? data : task));
   }
