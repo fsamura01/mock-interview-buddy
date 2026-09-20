@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 function App() {
   const [tasks, setTasks] = useState([]);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -12,46 +13,61 @@ function App() {
 
   useEffect(() => {
     const fetchTasks = async () => {
-      const response = await fetch('http://localhost:3000/api/tasks');
-      if (!response.ok) {
-        return;
+      try {
+        const response = await fetch('http://localhost:3000/api/tasks');
+        if (!response.ok) {
+          throw new Error('Failed to fetch tasks');
+        }
+        const data = await response.json();
+        setTasks(data);
+      } catch (error) {
+        setError('Unable to load tasks. Please make sure the server is running.');
       }
-      const data = await response.json();
-      setTasks(data);
     };
     fetchTasks();
   }, []);
 
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
-    const response = await fetch('http://localhost:3000/api/tasks', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(formData)
-    });
-    if (!response.ok) {
-      return;
+    try {
+      setError('');
+      const response = await fetch('http://localhost:3000/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add task');
+      }
+      const data = await response.json();
+      setTasks(prevTasks => [...prevTasks, data]);
+      setFormData({
+        title: '',
+        description: '',
+        dueDate: '',
+        status: 'TODO'
+      });
+    } catch (error) {
+      setError('Unable to add task. Please try again.');
     }
-    const data = await response.json();
-    setTasks([...tasks, data]);
-    setFormData({
-      title: '',
-      description: '',
-      dueDate: '',
-      status: 'TODO'
-    });
   };
 
   const handleTaskDelete = async (id) => {
-    const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
-      method: 'DELETE'
-    });
-    if (!response.ok) {
-      return;
+    try {
+      setError('');
+      const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete task');
+      }
+      setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+    } catch (error) {
+      setError('Unable to delete task. Please try again.');
     }
-    setTasks(tasks.filter(task => task.id !== id));
   };
 
   const handleTaskStatusChange = async (id, newStatus) => {
@@ -60,25 +76,30 @@ function App() {
       ...task,
       status: newStatus
     };
-
-    const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(updatedTask)
-    });
-    if (!response.ok) {
-      return;
+    try {
+      setError('');
+      const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatedTask)
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update task');
+      }
+      const data = await response.json();
+      setTasks(prevTasks => prevTasks.map(task => task.id === id ? data : task));
+    } catch (error) {
+      setError('Unable to update task. Please try again.');
     }
-    const data = await response.json();
-    setTasks(tasks.map(task => task.id === id ? data : task));
   }
 
 
   return (
     <>
       <h1>Kanban Board</h1>
+      {error && <p className="error-message">{error}</p>}
 
       <form className='form-section' onSubmit={handleTaskSubmit}>
         <h2>Add New Task</h2>
