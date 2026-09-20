@@ -121,6 +121,11 @@ function App() {
               <h3>{task.title}</h3>
               <p>{task.description}</p>
               <small>Due: {task.dueDate}</small>
+              <select value={task.status} onChange={(e) => handleTaskStatusChange(task.id, e.target.value)}>
+                <option value="TODO">TODO</option>
+                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                <option value="DONE">DONE</option>
+              </select>
               <button onClick={() => handleTaskDelete(task.id)}>Delete</button>
             </div>
           ))}
@@ -133,6 +138,11 @@ function App() {
               <h3>{task.title}</h3>
               <p>{task.description}</p>
               <small>Due: {task.dueDate}</small>
+              <select value={task.status} onChange={(e) => handleTaskStatusChange(task.id, e.target.value)}>
+                <option value="TODO">TODO</option>
+                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                <option value="DONE">DONE</option>
+              </select>
               <button onClick={() => handleTaskDelete(task.id)}>Delete</button>
             </div>
           ))}
