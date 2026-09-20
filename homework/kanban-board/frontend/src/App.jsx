@@ -19,7 +19,7 @@ function App() {
     fetchTasks();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleTaskSubmit = async (e) => {
     e.preventDefault();
     const response = await fetch('http://localhost:3000/api/tasks', {
       method: 'POST',
@@ -38,18 +38,38 @@ function App() {
     });
   };
 
-  const handleDelete = async (id) => {
+  const handleTaskDelete = async (id) => {
     const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
       method: 'DELETE'
     });
+    const data = await response.json();
     setTasks(tasks.filter(task => task.id !== id));
   };
+
+  const handleTaskStatusChange = async (id, newStatus) => {
+    const task = tasks.find(task => task.id === id);
+    const updatedTask = {
+      ...task,
+      status: newStatus
+    };
+
+    const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updatedTask)
+    });
+    const data = await response.json();
+
+  }
+
 
   return (
     <>
       <h1>Kanban Board</h1>
 
-      <form className='form-section' onSubmit={handleSubmit}>
+      <form className='form-section' onSubmit={handleTaskSubmit}>
         <h2>Add New Task</h2>
         <input
           type='text'
@@ -83,8 +103,13 @@ function App() {
             <div className="task" key={task.id}>
               <h3>{task.title}</h3>
               <p>{task.description}</p>
-              <small>Due: {task.dueDate}</small>{" "}
-              <button onClick={() => handleDelete(task.id)}>Delete</button>
+              <small>Due: {task.dueDate}</small>
+              <select value={task.status} onChange={(e) => handleTaskStatusChange(task.id, e.target.value)}>
+                <option value="TODO">TODO</option>
+                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                <option value="DONE">DONE</option>
+              </select>
+              <button onClick={() => handleTaskDelete(task.id)}>Delete</button>
             </div>
           ))}
         </div>
@@ -96,7 +121,7 @@ function App() {
               <h3>{task.title}</h3>
               <p>{task.description}</p>
               <small>Due: {task.dueDate}</small>
-              <button onClick={() => handleDelete(task.id)}>Delete</button>
+              <button onClick={() => handleTaskDelete(task.id)}>Delete</button>
             </div>
           ))}
         </div>
@@ -108,7 +133,7 @@ function App() {
               <h3>{task.title}</h3>
               <p>{task.description}</p>
               <small>Due: {task.dueDate}</small>
-              <button onClick={() => handleDelete(task.id)}>Delete</button>
+              <button onClick={() => handleTaskDelete(task.id)}>Delete</button>
             </div>
           ))}
         </div>
