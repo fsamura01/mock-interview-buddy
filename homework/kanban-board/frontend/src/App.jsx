@@ -38,6 +38,13 @@ function App() {
     });
   };
 
+  const handleDelete = async (id) => {
+    const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
+      method: 'DELETE'
+    });
+    setTasks(tasks.filter(task => task.id !== id));
+  };
+
   return (
     <>
       <h1>Kanban Board</h1>
@@ -76,7 +83,8 @@ function App() {
             <div className="task" key={task.id}>
               <h3>{task.title}</h3>
               <p>{task.description}</p>
-              <small>Due: {task.dueDate}</small>
+              <small>Due: {task.dueDate}</small>{" "}
+              <button onClick={() => handleDelete(task.id)}>Delete</button>
             </div>
           ))}
         </div>
@@ -88,6 +96,7 @@ function App() {
               <h3>{task.title}</h3>
               <p>{task.description}</p>
               <small>Due: {task.dueDate}</small>
+              <button onClick={() => handleDelete(task.id)}>Delete</button>
             </div>
           ))}
         </div>
@@ -99,6 +108,7 @@ function App() {
               <h3>{task.title}</h3>
               <p>{task.description}</p>
               <small>Due: {task.dueDate}</small>
+              <button onClick={() => handleDelete(task.id)}>Delete</button>
             </div>
           ))}
         </div>
