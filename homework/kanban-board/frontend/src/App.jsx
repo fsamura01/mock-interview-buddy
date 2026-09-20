@@ -19,11 +19,30 @@ function App() {
     fetchTasks();
   }, []);
 
+  const handleAddTask = (e) => {
+    e.preventDefault();
+    const response = fetch('http://localhost:3000/api/tasks', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    });
+    const data = response.json();
+    setTasks([...tasks, data]);
+    setFormData({
+      title: '',
+      description: '',
+      dueDate: '',
+      status: 'TODO'
+    });
+  };
+
   return (
     <>
       <h1>Kanban Board</h1>
 
-      <form className='form-section'>
+      <form className='form-section' onSubmit={handleAddTask}>
         <h2>Add New Task</h2>
         <input
           type='text'
