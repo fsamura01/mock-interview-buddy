@@ -61,7 +61,7 @@ function App() {
       body: JSON.stringify(updatedTask)
     });
     const data = await response.json();
-
+    setTasks(tasks.map(task => task.id === id ? data : task));
   }
 
 
